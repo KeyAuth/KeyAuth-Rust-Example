@@ -1,4 +1,4 @@
-# KeyAuth-Python-Example
+# KeyAuth-Rust-Example
 KeyAuth Rust Example For The https://keyauth.com Authentication system.
 
 Update the values in main.rs and you're ready to go!
