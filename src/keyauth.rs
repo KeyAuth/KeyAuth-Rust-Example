@@ -1,21 +1,33 @@
 use base16::encode_lower;
 use crypto::{digest::Digest, sha2::Sha256};
 use hex::decode;
-use reqwest::blocking::Client;
-use uuid::Uuid;
 use machine_uuid;
+use reqwest::blocking::Client;
+use serde::Deserialize;
+use serde_json;
+use uuid::Uuid;
 
 use aes::Aes256;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
 
-const BASE_URL: &str = "https://keyauth.com/api/";
+const BASE_URL: &str = "https://keyauth.com/api/v2/";
 
 type Aes256Cbc = Cbc<Aes256, Pkcs7>;
+
 pub struct KeyauthApi {
     name: String,
     owner_id: String,
     secret: String,
+    key: Option<String>,
+    init_iv: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Key {
+    key: String,
+    expiry: String,
+    level: u32,
 }
 
 impl KeyauthApi {
@@ -24,68 +36,92 @@ impl KeyauthApi {
             name: name,
             owner_id: owner_id,
             secret: secret,
+            key: None,
+            init_iv: String::new(),
         }
     }
 
-    pub fn init(&self) -> Result<(), String> {
+    pub fn init(&mut self) -> Result<(), String> {
         let session_iv = Uuid::new_v4().to_simple().to_string()[..8].to_string();
         let mut hasher = Sha256::new();
         hasher.input(session_iv.as_bytes());
         let init_iv: String = hasher.result_str();
+        self.init_iv = init_iv;
         let data = format!(
             "type={}&name={}&ownerid={}&init_iv={}",
             encode_lower(b"init"),
             encode_lower(self.name.as_bytes()),
             encode_lower(self.owner_id.as_bytes()),
-            &init_iv
+            &self.init_iv
         );
+        
 
         let req = Self::make_req(data);
 
-        let response = Encryption::decrypt(req.text().unwrap(), &self.secret, &init_iv);
+        let response = Encryption::decrypt(req.text().unwrap(), &self.secret, &self.init_iv);
 
-        if response == "KeyAuth_Disabled".to_string() {
-            Err("The program key you tried to use doesn't exist".to_string())
-        } else if response == "KeyAuth_Initialized".to_string() {
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+        if json_rep["success"].as_bool().unwrap() {
             Ok(())
         } else {
-            Err("The program key you tried to use doesn't exist".to_string())
+            Err(json_rep["message"].as_str().unwrap().to_string())
         }
     }
 
-    pub fn login(&self, key: String, hwid: Option<String>) -> Result<(), String> {
+    pub fn login(&mut self, key: String, hwid: Option<String>) -> Result<Key, String> {
         let hwid = match hwid {
             Some(hwid) => hwid,
             None => Self::get_hwid(),
         };
-        let session_iv = Uuid::new_v4().to_simple().to_string()[..8].to_string();
-        let mut hasher = Sha256::new();
-        hasher.input(session_iv.as_bytes());
-        let init_iv: String = hasher.result_str();
+        if self.init_iv == String::new() {
+            return Err("NotInitalized".to_string());
+        }
 
         let data = format!(
             "type={}&key={}&hwid={}&name={}&ownerid={}&init_iv={}",
             encode_lower(b"login"),
-            Encryption::encrypt(key, &self.secret, &init_iv),
-            Encryption::encrypt(hwid, &self.secret, &init_iv),
+            Encryption::encrypt(&key, &self.secret, &self.init_iv),
+            Encryption::encrypt(&hwid, &self.secret, &self.init_iv),
             encode_lower(self.name.as_bytes()),
             encode_lower(self.owner_id.as_bytes()),
-            &init_iv
+            &self.init_iv
         );
 
         let req = Self::make_req(data);
 
-        let response = Encryption::decrypt(req.text().unwrap(), &self.secret, &init_iv);
-        if response == "KeyAuth_Valid".to_string() {
-            Ok(())
-        } else if response == "KeyAuth_Invalid".to_string() {
-            Err("Key not found".to_string())
-        } else if response == "KeyAuth_InvalidHWID".to_string() {
-            Err("This computer doesn't match the computer the key is locked to. If you reset your computer, contact the application owner".to_string())
-        } else if response == "KeyAuth_Expired".to_string() {
-            Err("This key is expired".to_string())
+        let response = Encryption::decrypt(req.text().unwrap(), &self.secret, &self.init_iv);
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+        if json_rep["success"].as_bool().unwrap() {
+            self.key = Some(key);
+            Ok(serde_json::from_value(json_rep["info"].clone()).unwrap())
         } else {
-            Err("Application Failed To Connect. Try again or contact application owner".to_string())
+            Err(json_rep["message"].as_str().unwrap().to_string())
+        }
+    }
+
+    pub fn log(&self, msg: String) -> Result<(), String> {
+        if msg.len() > 128 {
+            return Err("MaxLogSize128".to_string());
+        }
+        match self.key {
+            Some(_) => {}
+            None => return Err("NotLoggedIn".to_string()),
+        };
+        let key = self.key.clone().unwrap();
+        let data = format!(
+            "type={}&key={}&message={}&name={}&ownerid={}&init_iv={}",
+            encode_lower(b"log"),
+            Encryption::encrypt(&key, &self.secret, &self.init_iv),
+            Encryption::encrypt(&msg, &self.secret, &self.init_iv),
+            encode_lower(self.name.as_bytes()),
+            encode_lower(self.owner_id.as_bytes()),
+            &self.init_iv,
+        );
+        let resp = Self::make_req(data);
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(resp.status().as_str().to_string())
         }
     }
 
@@ -104,7 +140,7 @@ impl KeyauthApi {
         if cfg!(windows) {
             machine_uuid::get()
         } else {
-            "None".into()
+            "None".to_string()
         }
     }
 }
@@ -127,7 +163,7 @@ impl Encryption {
         cipher.decrypt_vec(&mut buf).unwrap()
     }
 
-    fn encrypt(message: String, enc_key: &String, iv: &String) -> String {
+    fn encrypt(message: &String, enc_key: &String, iv: &String) -> String {
         let mut hasher = Sha256::new();
         hasher.input(enc_key.as_bytes());
         let _key: String = hasher.result_str()[..32].to_owned();
