@@ -3,7 +3,11 @@ KeyAuth Rust Example For The https://keyauth.win Authentication system.
 
 Update the values in main.rs and you're ready to go!
 
-Credits to zegevlier#2959 on Discord for programming :)
+### **Credits**
+Original Version Creator: zegevlier#2959
+
+2022 Version Creator: mazkdevf - [Github](https://github.com/mazk5145)
+
 
 **What is KeyAuth?**
 

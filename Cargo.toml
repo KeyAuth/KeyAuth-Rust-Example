@@ -1,8 +1,8 @@
 [package]
-authors = ["zegevlier <iamascratcher@gmail.com>"]
-edition = "2018"
+authors = ["zegevlier <iamascratcher@gmail.com>", "mazkdevf <https://github.com/mazk5145>"]
+edition = "2022"
 name = "keyauth"
-version = "0.3.0"
+version = "0.5.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

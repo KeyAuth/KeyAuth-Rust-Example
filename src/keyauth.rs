@@ -9,7 +9,7 @@ use aes::Aes256;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
 
-const BASE_URL: &str = "https://keyauth.com/api/1.0/";
+const BASE_URL: &str = "https://keyauth.win/api/1.0/";
 
 type Aes256Cbc = Cbc<Aes256, Pkcs7>;
 
@@ -20,6 +20,21 @@ pub struct KeyauthApi {
     version: String,
     enckey: String,
     session_id: String,
+    pub numKeys: String,
+    pub numOnlineUsers: String,
+    pub numUsers: String,
+    pub appVersion: String,
+    pub customerPanelLink: String,
+    pub username: String,
+    pub ip: String,
+    pub hwid: String,
+    pub createDate: String,
+    pub LastLogin: String,
+    pub subscription: String,
+    pub message: String,
+    pub success: bool,
+    pub blackListed: bool,
+    pub response: String,
 }
 
 impl KeyauthApi {
@@ -31,6 +46,21 @@ impl KeyauthApi {
             version: version.to_string(),
             enckey: String::new(),
             session_id: String::new(),
+            numKeys: String::new(),
+            numOnlineUsers: String::new(),
+            numUsers: String::new(),
+            appVersion: version.to_string(),
+            customerPanelLink: String::new(),
+            username: String::new(),
+            ip: String::new(),
+            hwid: Self::get_hwid(),
+            createDate: String::new(),
+            LastLogin: String::new(),
+            subscription: String::new(),
+            message: String::new(),
+            success: false,
+            blackListed: false,
+            response: String::new(),
         }
     }
 
@@ -65,6 +95,19 @@ impl KeyauthApi {
 
         if json_rep["success"].as_bool().unwrap() {
             self.session_id = json_rep["sessionid"].as_str().unwrap().to_string();
+            self.numKeys = json_rep["appinfo"]["numKeys"].as_str().unwrap().to_string();
+            self.numOnlineUsers = json_rep["appinfo"]["numOnlineUsers"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            self.numUsers = json_rep["appinfo"]["numUsers"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            self.customerPanelLink = json_rep["appinfo"]["customerPanelLink"]
+                .as_str()
+                .unwrap()
+                .to_string();
             Ok(())
         } else {
             if json_rep["message"].as_str().unwrap() == "invalidver" {
@@ -116,6 +159,15 @@ impl KeyauthApi {
         let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
 
         if json_rep["success"].as_bool().unwrap() {
+            self.username = json_rep["info"]["username"].as_str().unwrap().to_string();
+            self.ip = json_rep["info"]["ip"].as_str().unwrap().to_string();
+            self.hwid = json_rep["info"]["hwid"].as_str().unwrap().to_string();
+            self.createDate = json_rep["info"]["createdate"].as_str().unwrap().to_string();
+            self.LastLogin = json_rep["info"]["lastlogin"].as_str().unwrap().to_string();
+            self.subscription = json_rep["info"]["subscriptions"][0]["subscription"]
+                .as_str()
+                .unwrap()
+                .to_string();
             Ok(())
         } else {
             Err(json_rep["message"].as_str().unwrap().to_string())
@@ -184,10 +236,21 @@ impl KeyauthApi {
         let response = req.text().unwrap();
 
         let response = Encryption::decrypt(response, &self.enckey, &init_iv);
+        println!("{}", response);
 
         let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
 
         if json_rep["success"].as_bool().unwrap() {
+            self.username = json_rep["info"]["username"].as_str().unwrap().to_string();
+            self.ip = json_rep["info"]["ip"].as_str().unwrap().to_string();
+            self.hwid = json_rep["info"]["hwid"].as_str().unwrap().to_string();
+            self.createDate = json_rep["info"]["createdate"].as_str().unwrap().to_string();
+            self.LastLogin = json_rep["info"]["lastlogin"].as_str().unwrap().to_string();
+            self.subscription = json_rep["info"]["subscriptions"][0]["subscription"]
+                .as_str()
+                .unwrap()
+                .to_string();
+
             Ok(())
         } else {
             Err(json_rep["message"].as_str().unwrap().to_string())
@@ -223,6 +286,16 @@ impl KeyauthApi {
         let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
 
         if json_rep["success"].as_bool().unwrap() {
+            self.username = json_rep["info"]["username"].as_str().unwrap().to_string();
+            self.ip = json_rep["info"]["ip"].as_str().unwrap().to_string();
+            self.hwid = json_rep["info"]["hwid"].as_str().unwrap().to_string();
+            self.createDate = json_rep["info"]["createdate"].as_str().unwrap().to_string();
+            self.LastLogin = json_rep["info"]["lastlogin"].as_str().unwrap().to_string();
+            self.subscription = json_rep["info"]["subscriptions"][0]["subscription"]
+                .as_str()
+                .unwrap()
+                .to_string();
+
             Ok(json_rep["info"].clone())
         } else {
             Err(json_rep["message"].as_str().unwrap().to_string())
@@ -311,6 +384,104 @@ impl KeyauthApi {
         }
     }
 
+    pub fn check(&mut self) {
+        let init_iv = Self::gen_init_iv();
+
+        let mut data = HashMap::new();
+        data.insert("type", encode_lower(b"check"));
+        data.insert("sessionid", encode_lower(self.session_id.as_bytes()));
+        data.insert("name", encode_lower(self.name.as_bytes()));
+        data.insert("ownerid", encode_lower(self.owner_id.as_bytes()));
+        data.insert("init_iv", init_iv.to_string());
+
+        let req = Self::make_req(data);
+        let response = req.text().unwrap();
+
+        let response = Encryption::decrypt(response, &self.enckey, &init_iv);
+
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+        self.message = json_rep["message"].as_str().unwrap().to_string();
+        self.success = json_rep["success"].as_bool().unwrap();
+    }
+
+    pub fn checkBlack(&mut self) {
+        let init_iv = Self::gen_init_iv();
+
+        let hwid = Self::get_hwid();
+
+        let mut data = HashMap::new();
+        data.insert("type", encode_lower(b"checkblacklist"));
+        data.insert("sessionid", encode_lower(self.session_id.as_bytes()));
+        data.insert("name", encode_lower(self.name.as_bytes()));
+        data.insert("ownerid", encode_lower(self.owner_id.as_bytes()));
+        data.insert("hwid", Encryption::encrypt(&hwid, &self.enckey, &init_iv));
+        data.insert("init_iv", init_iv.to_string());
+
+        let req = Self::make_req(data);
+        let response = req.text().unwrap();
+
+        let response = Encryption::decrypt(response, &self.enckey, &init_iv);
+
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+        println!("{}", response);
+
+        if json_rep["success"].as_bool().unwrap() {
+            self.blackListed = true;
+        } else {
+            self.blackListed = false;
+        }
+    }
+
+    pub fn setvar(&mut self, varname: String, varvalue: String) {
+        let init_iv = Self::gen_init_iv();
+
+        let mut data = HashMap::new();
+        data.insert("type", encode_lower(b"setvar"));
+        data.insert("sessionid", encode_lower(self.session_id.as_bytes()));
+        data.insert("name", encode_lower(self.name.as_bytes()));
+        data.insert("var", encode_lower(varname.as_bytes()));
+        data.insert("data", encode_lower(varvalue.as_bytes()));
+        data.insert("ownerid", encode_lower(self.owner_id.as_bytes()));
+        data.insert("init_iv", init_iv.to_string());
+
+        let req = Self::make_req(data);
+        let response = req.text().unwrap();
+
+        let response = Encryption::decrypt(response, &self.enckey, &init_iv);
+
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+        self.message = json_rep["message"].as_str().unwrap().to_string();
+        self.success = json_rep["success"].as_bool().unwrap();
+    }
+
+    pub fn getvar(&mut self, varname: String) {
+        let init_iv = Self::gen_init_iv();
+
+        let mut data = HashMap::new();
+        data.insert("type", encode_lower(b"getvar"));
+        data.insert("sessionid", encode_lower(self.session_id.as_bytes()));
+        data.insert("var", encode_lower(varname.as_bytes()));
+        data.insert("name", encode_lower(self.name.as_bytes()));
+        data.insert("ownerid", encode_lower(self.owner_id.as_bytes()));
+        data.insert("init_iv", init_iv.to_string());
+
+        let req = Self::make_req(data);
+        let response = req.text().unwrap();
+
+        let response = Encryption::decrypt(response, &self.enckey, &init_iv);
+
+        let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+        if json_rep["success"].as_bool().unwrap() {
+            self.response = json_rep["response"].as_str().unwrap().to_string();
+        } else {
+            self.response = json_rep["message"].as_str().unwrap().to_string();
+        }
+    }
+
     pub fn log(&mut self, message: String) {
         let init_iv = Self::gen_init_iv();
 
@@ -339,7 +510,6 @@ impl KeyauthApi {
             data_str.push_str(&format!("{}={}&", d.0, d.1))
         }
         data_str = data_str.strip_suffix('&').unwrap().to_string();
-        println!("data_str: {}", data_str);
         client
             .post(BASE_URL)
             .body(data_str)
