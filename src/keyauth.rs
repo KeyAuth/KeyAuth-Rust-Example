@@ -424,9 +424,7 @@ impl KeyauthApi {
         let response = Encryption::decrypt(response, &self.enckey, &init_iv);
 
         let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
-
-        println!("{}", response);
-
+        
         if json_rep["success"].as_bool().unwrap() {
             self.blackListed = true;
         } else {
