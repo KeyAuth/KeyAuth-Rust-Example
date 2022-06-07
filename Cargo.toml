@@ -1,6 +1,6 @@
 [package]
 authors = ["zegevlier <iamascratcher@gmail.com>", "mazkdevf <https://github.com/mazk5145>"]
-edition = "2022"
+edition = "2018"
 name = "keyauth"
 version = "0.5.0"
 
