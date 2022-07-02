@@ -518,11 +518,7 @@ impl KeyauthApi {
     }
 
     fn get_hwid() -> String {
-        if cfg!(windows) {
-            machine_uuid::get()
-        } else {
-            "None".to_string()
-        }
+        machine_uuid::get()
     }
 
     fn gen_init_iv() -> String {
