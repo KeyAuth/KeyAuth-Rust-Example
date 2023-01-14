@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use base16::{decode, encode_lower};
-use crypto::{digest::Digest, sha2::Sha256};
+use sha256::{digest, try_digest};
 use reqwest::blocking::Client;
 use uuid::Uuid;
 
@@ -243,7 +243,7 @@ impl KeyauthApi {
         if json_rep["success"].as_bool().unwrap() {
             self.username = json_rep["info"]["username"].as_str().unwrap().to_string();
             self.ip = json_rep["info"]["ip"].as_str().unwrap().to_string();
-            self.hwid = json_rep["info"]["hwid"].as_str().unwrap().to_string();
+            self.hwid = json_rep["info"]["hwid"].as_str().expect("NO HWID SPECIFIED").to_string();
             self.createDate = json_rep["info"]["createdate"].as_str().unwrap().to_string();
             self.LastLogin = json_rep["info"]["lastlogin"].as_str().unwrap().to_string();
             self.subscription = json_rep["info"]["subscriptions"][0]["subscription"]
@@ -424,7 +424,7 @@ impl KeyauthApi {
         let response = Encryption::decrypt(response, &self.enckey, &init_iv);
 
         let json_rep: serde_json::Value = serde_json::from_str(&response).unwrap();
-        
+
         if json_rep["success"].as_bool().unwrap() {
             self.blackListed = true;
         } else {
@@ -523,9 +523,8 @@ impl KeyauthApi {
 
     fn gen_init_iv() -> String {
         let session_iv = Uuid::new_v4().to_simple().to_string()[..8].to_string();
-        let mut hasher = Sha256::new();
-        hasher.input(session_iv.as_bytes());
-        hasher.result_str()
+        digest(session_iv.as_bytes())
+
     }
 }
 
@@ -547,29 +546,25 @@ impl Encryption {
     }
 
     fn encrypt(message: &str, enc_key: &str, iv: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.input(enc_key.as_bytes());
-        let key: String = hasher.result_str()[..32].to_owned();
+        let mut hasher = sha256::digest(enc_key.as_bytes());
+        let key: String = hasher[..32].to_owned();
 
-        let mut hasher = Sha256::new();
-        hasher.input(iv.as_bytes());
-        let iv: String = hasher.result_str()[..16].to_owned();
+        let mut hasher = sha256::digest(iv.as_bytes());
+        let iv: String = hasher[..16].to_owned();
         Encryption::encrypt_string(message.as_bytes(), key.as_bytes(), iv.as_bytes())
     }
 
     fn decrypt(message: String, enc_key: &str, iv: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.input(enc_key.as_bytes());
-        let key: String = hasher.result_str()[..32].to_owned();
+        let mut hasher = sha256::digest(enc_key.as_bytes());
+        let key: String = hasher[..32].to_owned();
 
-        let mut hasher = Sha256::new();
-        hasher.input(iv.as_bytes());
-        let iv: String = hasher.result_str()[..16].to_owned();
+        let mut hasher = sha256::digest(iv.as_bytes());
+        let iv: String = hasher[..16].to_owned();
         String::from_utf8(Encryption::decrypt_string(
             message.as_bytes(),
             key.as_bytes(),
             iv.as_bytes(),
         ))
-        .unwrap()
+            .unwrap()
     }
 }
