@@ -1,21 +1,11 @@
 [package]
 authors = ["EBSmash <https://github.com/EBSmash" , "zegevlier <iamascratcher@gmail.com>", "mazkdevf <https://github.com/mazk5145>"]
 edition = "2021"
-name = "keyauth"
-version = "0.5.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+name = "keyauth-loader"
+version = "1.0.0"
 
 [dependencies]
-aes = "0.7.4"
-base16 = "0.2.1"
-block-modes = "0.8.1"
-machine_uuid = "0.1.0"
-obfstr = "0.3.0"
-reqwest = {version = "0.11.3", features = ["blocking"]}
-sha256 = "1.1.1"
-serde = {version = "1.0.126", features = ["derive"]}
-serde_json = "1.0.64"
-uuid = {version = "0.8.2", features = ["v4"]}
-webbrowser = "0.5.5"
+keyauth = "1.0.3"
+#keyauth = { version = "1.0.3", features = ["seller", "v1_1], default-features = false }
+obfstr = "0.3.0" # sting only obfuscation
+#goldberg = "0.1.0" # for obfuscation

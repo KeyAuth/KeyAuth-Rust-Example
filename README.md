@@ -5,6 +5,10 @@ Update the values in main.rs and you're ready to go!
 
 ## **Bugs**
 
+If you have any issues with the underling library make an issue on the library's [Github](https://github.com/D0A1V2I3D/keyauth-rust)
+
+[Old library](https://github.com/KeyAuth/KeyAuth-Rust-Example/tree/backupoldapi)
+
 If the default example not added to your software isn't functioning how it should, please join the Discord server https://discord.gg/keyauth and submit the issue in the `#bugs` channel.
 
 However, we do **NOT** provide support for adding KeyAuth to your project. If you can't figure this out you should use Google or YouTube to learn more about the programming language you want to sell a program in.
