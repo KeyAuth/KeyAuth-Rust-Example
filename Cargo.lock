@@ -429,9 +429,9 @@ dependencies = [
 
 [[package]]
 name = "keyauth"
-version = "1.0.3"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9afc7a33c227827d5f1129915819934d1f6caa1c18214ce083feb6a3b1f2eaca"
+checksum = "cf5ec8e7a524a25c44519cdd4f018e8f85c56c41fb1180ccd9976a3dbb8f910f"
 dependencies = [
  "base16",
  "hex",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "keyauth-loader"
-version = "0.5.0"
+version = "1.0.0"
 dependencies = [
  "keyauth",
  "obfstr",
